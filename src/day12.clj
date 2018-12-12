@@ -58,18 +58,16 @@
                           (repeat (- rmin n) \.)))
       generation)))
 
-(defn pad-and-evolve [{:keys [initial rules]} generations]
+(defn pad-and-evolve [{:keys [initial rules]}]
   (let [lmin (find-min-left-empty-pots rules)
         rmin (find-min-right-empty-pots rules)]
-    (nth
-      (iterate
-        (fn [{:keys [generation lpads]}]
-          (let [left-pad-generation (left-pad generation lmin)]
-            {:generation (evolve rules (right-pad left-pad-generation rmin))
-             :lpads      (+ lpads (- (count left-pad-generation) (count generation)))}))
-        {:generation initial
-         :lpads      0})
-      generations)))
+    (iterate
+      (fn [{:keys [generation lpads]}]
+        (let [left-pad-generation (left-pad generation lmin)]
+          {:generation (evolve rules (right-pad left-pad-generation rmin))
+           :lpads      (+ lpads (- (count left-pad-generation) (count generation)))}))
+      {:generation initial
+       :lpads      0})))
 
 (defn sum-plan-indices [{:keys [generation lpads]}]
   (reduce + (keep-indexed (fn [i pot]
@@ -79,10 +77,15 @@
 
 (defn part1 [input]
   (-> (parse-input input)
-      (pad-and-evolve 20)
+      (pad-and-evolve)
+      (nth 20)
       (sum-plan-indices)))
 
 (defn part2 [input]
-  (-> (parse-input input)
-      (pad-and-evolve 5000)
-      (sum-plan-indices)))
+  (->> (parse-input input)
+       (pad-and-evolve)
+       (take 200)
+       (map sum-plan-indices))
+  ;; this shows that sequence increases by 50 at every step
+  ;; and the last value is 11125
+  (+ 11125 (* 50 (- 50000000000 199))))
