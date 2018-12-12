@@ -58,7 +58,7 @@
                           (repeat (- rmin n) \.)))
       generation)))
 
-(defn pad-and-envolve [{:keys [initial rules]} generations]
+(defn pad-and-evolve [{:keys [initial rules]} generations]
   (let [lmin (find-min-left-empty-pots rules)
         rmin (find-min-right-empty-pots rules)]
     (nth
@@ -79,10 +79,10 @@
 
 (defn part1 [input]
   (-> (parse-input input)
-      (pad-and-envolve 20)
+      (pad-and-evolve 20)
       (sum-plan-indices)))
 
 (defn part2 [input]
   (-> (parse-input input)
-      (pad-and-envolve 5000)
+      (pad-and-evolve 5000)
       (sum-plan-indices)))
