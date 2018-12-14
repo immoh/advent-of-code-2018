@@ -66,3 +66,24 @@
         (take-nodes 10)
         (->> (map get-value))
         (clojure.string/join))))
+
+(defn recipes-until-seq [recipe-seq]
+  (first (drop-while (fn [{:keys [last-recipe]}]
+                       (not (contains? (set [{(-> last-recipe
+                                                  (move-backward (dec (count recipe-seq)))
+                                                  (take-nodes (count recipe-seq))
+                                                  (->> (map get-value)))
+                                              (-> last-recipe
+                                                  (move-backward (count recipe-seq))
+                                                  (take-nodes (count recipe-seq))
+                                                  (->> (map get-value)))}])
+                                       recipe-seq)))
+                     (iterate execute-round (create-starting-state)))))
+
+(defn parse-input [input]
+  (map #(- (int %) 48) input))
+
+(defn part2 [recipe-seq]
+  (-> (recipes-until-seq (parse-input recipe-seq))
+      (:recipe-count)
+      (- (count recipe-seq))))
