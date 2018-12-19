@@ -5,8 +5,8 @@
 (defn create-map-item [c]
   (case c
     \. {:type :free}
-    \E {:type :elf :points 200 :id (UUID/randomUUID)}
-    \G {:type :goblin :points 200 :id (UUID/randomUUID)}
+    \E {:type :elf :points 200 :attack-power 3 :id (UUID/randomUUID)}
+    \G {:type :goblin :points 200 :attack-power 3 :id (UUID/randomUUID)}
     nil))
 
 (defn parse-input [input]
@@ -126,9 +126,8 @@
                               (range (inc (reduce max (map second (keys state)))))))))
   (println (clojure.string/join " " (keep :points (vals state)))))
 
-(defn calculate-points [rounds state]
-  (prn {:rounds rounds :points (keep :points (vals state))})
-  (* rounds (reduce + (keep :points (vals state)))))
+(defn calculate-points [{:keys [complete-rounds state]}]
+  (* complete-rounds (reduce + (keep :points (vals state)))))
 
 (defn game [state]
   (loop [state state
@@ -137,9 +136,10 @@
     (println "Round" rounds)
     (print-state state)
     (if (game-over? state)
-      (calculate-points (if round-incomplete? (dec rounds) rounds) state)
+      {:complete-rounds (if round-incomplete? (dec rounds) rounds)
+       :state           state}
       (let [{:keys [state round-incomplete?]} (round state)]
         (recur state round-incomplete? (inc rounds))))))
 
 (defn part1 [input]
-  (game (parse-input input)))
+  (calculate-points (game (parse-input input))))
