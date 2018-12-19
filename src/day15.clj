@@ -5,8 +5,8 @@
 (defn create-map-item [c]
   (case c
     \. {:type :free}
-    \E {:type :elf :points 200 :id (UUID/randomUUID)}
-    \G {:type :goblin :points 200 :id (UUID/randomUUID)}
+    \E {:type :elf :points 200 :attack-power 3 :id (UUID/randomUUID)}
+    \G {:type :goblin :points 200 :attack-power 3 :id (UUID/randomUUID)}
     nil))
 
 (defn parse-input [input]
@@ -32,8 +32,8 @@
   #_(prn :location location :enemies enemies)
   (first (sort-by (juxt (comp :points val) key) (filter #(= (distance location (key %)) 1) enemies))))
 
-(defn attack [state [location enemy]]
-  (let [{:keys [points] :as updated-enemy} (update enemy :points - 3)]
+(defn attack [state {:keys [attack-power]} [location enemy]]
+  (let [{:keys [points] :as updated-enemy} (update enemy :points - attack-power)]
     (assoc state location (if (<= points 0)
                             {:type :free}
                             updated-enemy))))
@@ -53,31 +53,32 @@
 (defn create-free-cell-set [state]
   (set (keys (filter #(= (:type (val %)) :free) state))))
 
-(defn get-shortest-path-to-target [state from target]
-  (let [free-cells (create-free-cell-set state)]
-    (loop [paths (merge {from [] target nil} (zipmap free-cells (repeat nil)))
-           unvisited free-cells
-           current from]
-      (when current
-        (if (= current target)
-          (get paths current)
-          (let [neighbors (get-neighbors current free-cells)
-                new-paths (reduce #(update-paths % %2 (get paths current)) paths neighbors)
-                new-unvisited (disj unvisited current)]
-            (recur new-paths
-                   (disj unvisited current)
-                   (some->> (select-keys new-paths new-unvisited)
-                            (filter val)
-                            (sort-by (juxt (comp count val) val))
-                            (first)
-                            (key)))))))))
+(defn get-shortest-path-to-target* [free-cells-set from target]
+  (loop [paths (merge {from [] target nil} (zipmap free-cells-set (repeat nil)))
+         unvisited free-cells-set
+         current from]
+    (when current
+      (if (= current target)
+        (get paths current)
+        (let [neighbors (get-neighbors current free-cells-set)
+              new-paths (reduce #(update-paths % %2 (get paths current)) paths neighbors)
+              new-unvisited (disj unvisited current)]
+          (recur new-paths
+                 (disj unvisited current)
+                 (some->> (select-keys new-paths new-unvisited)
+                          (filter val)
+                          (sort-by (juxt (comp count val) val))
+                          (first)
+                          (key))))))))
+
+(def get-shortest-path-to-target (memoize get-shortest-path-to-target*))
 
 (defn get-targets [state enemies]
   (let [free-cell? (create-free-cell-set state)]
     (mapcat #(get-neighbors (key %) free-cell?) enemies)))
 
 (defn get-next-location [state location enemies]
-  (->> (keep (partial get-shortest-path-to-target state location) (get-targets state enemies))
+  (->> (keep (partial get-shortest-path-to-target (create-free-cell-set state) location) (get-targets state enemies))
        (sort-by (juxt count last first))
        (ffirst)))
 
@@ -90,10 +91,10 @@
         enemies (get-enemies state enemy-type)]
     (if (seq enemies)
       (if-let [enemy-in-range (get-enemy-in-range location enemies)]
-        {:state (attack state enemy-in-range)}
+        {:state (attack state player enemy-in-range)}
         (if-let [next-location (get-next-location state location enemies)]
           (if-let [enemy-in-range (get-enemy-in-range next-location enemies)]
-            {:state (-> state (attack enemy-in-range) (move-player location next-location))}
+            {:state (-> state (attack player enemy-in-range) (move-player location next-location))}
             {:state (move-player state location next-location)})
           {:state state}))
       {:state state :round-incomplete? true})))
@@ -126,9 +127,8 @@
                               (range (inc (reduce max (map second (keys state)))))))))
   (println (clojure.string/join " " (keep :points (vals state)))))
 
-(defn calculate-points [rounds state]
-  (prn {:rounds rounds :points (keep :points (vals state))})
-  (* rounds (reduce + (keep :points (vals state)))))
+(defn calculate-points [{:keys [complete-rounds state]}]
+  (* complete-rounds (reduce + (keep :points (vals state)))))
 
 (defn game [state]
   (loop [state state
@@ -137,9 +137,39 @@
     (println "Round" rounds)
     (print-state state)
     (if (game-over? state)
-      (calculate-points (if round-incomplete? (dec rounds) rounds) state)
+      {:complete-rounds (if round-incomplete? (dec rounds) rounds)
+       :state           state}
       (let [{:keys [state round-incomplete?]} (round state)]
         (recur state round-incomplete? (inc rounds))))))
 
 (defn part1 [input]
-  (game (parse-input input)))
+  (calculate-points (game (parse-input input))))
+
+(defn set-elf-attack-power [state attack-power]
+  (into {} (map (fn [[location player]]
+                  [location (if (= (:type player) :elf)
+                              (assoc player :attack-power attack-power)
+                              player)])
+                state)))
+
+(defn bisect [good? f bad good]
+  (loop [bad bad
+         good good
+         cache {}]
+    (if (= (inc bad) good)
+      [good (cache good)]
+      (let [n (int (/ (+ bad good) 2))
+            v (f n)]
+        (if (good? v)
+          (recur bad n (assoc cache n v))
+          (recur n good cache))))))
+
+(defn count-elves [state]
+  (count (filter #(= :elf (:type %)) (vals state))))
+
+(defn part2 [input]
+  (let [state (parse-input input)
+        elves (count-elves state)]
+    (-> (bisect #(= elves (count-elves (:state %))) #(game (set-elf-attack-power state %)) 3 300)
+        (second)
+        (calculate-points))))
