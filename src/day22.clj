@@ -58,7 +58,8 @@
 (defn select-next [distances visited?]
   (->> distances
        (remove #(visited? (key %)))
-       (sort-by val)
+       (sort-by (juxt val #(let [[x y] (:location (key %))]
+                             (if (<= x 10) 0 (* x y)))))
        (first)
        (key)))
 
@@ -67,6 +68,7 @@
                   :equipment :torch}
          distances {current 0}
          visited #{current}]
+    #_(prn :current current :distance (get distances current))
     (if (= current {:location  target
                     :equipment :torch})
       (get distances current)
