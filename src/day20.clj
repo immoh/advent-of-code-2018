@@ -51,8 +51,8 @@
 
 (defn regex->tree [s]
   (cond
-    (clojure.string/starts-with? s "(") (into [:or] (mapv regex->tree (split-branches (subs s 1 (dec (count s))))))
-    (clojure.string/includes? s "(") (mapv regex->tree (find-branches s))
+    (clojure.string/starts-with? s "(") (into [:or] (map regex->tree (split-branches (subs s 1 (dec (count s))))))
+    (clojure.string/includes? s "(") (vec (remove #{""} (mapv regex->tree (find-branches s))))
     :else s))
 
 (defn expand-one [{:keys [string remaining]}]
