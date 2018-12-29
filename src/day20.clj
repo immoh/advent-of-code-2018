@@ -51,10 +51,13 @@
 
 (defn regex->tree [s]
   (prn :regex->tree)
-  (cond
-    (clojure.string/starts-with? s "(") (into [:or] (map regex->tree (split-branches (subs s 1 (dec (count s))))))
-    (clojure.string/includes? s "(") (vec (remove #{""} (mapv regex->tree (find-branches s))))
-    :else s))
+  (let [tree (cond
+               (clojure.string/starts-with? s "(") (into [:or] (map regex->tree (split-branches (subs s 1 (dec (count s))))))
+               (clojure.string/includes? s "(") (vec (remove #{""} (mapv regex->tree (find-branches s))))
+               :else s)]
+    (if (string? tree)
+      [tree]
+      tree)))
 
 (def direction->delta {\N [1 0]
                        \W [0 1]
