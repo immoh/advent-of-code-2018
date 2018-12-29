@@ -64,7 +64,9 @@
 (defn walk-simple-path [grid location path]
   (if-let [c (first path)]
     (let [new-location (mapv + location (direction->delta c))]
-      (recur (update grid location (fnil conj #{}) new-location)
+      (recur (-> grid
+                 (update location (fnil conj #{}) new-location)
+                 (update new-location (fnil conj #{}) location))
              new-location
              (rest path)))
     [grid location]))
