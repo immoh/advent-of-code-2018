@@ -49,12 +49,14 @@
                                 s)]
     (conj seqs buffer)))
 
+(defn regex->tree* [s]
+  (cond
+    (clojure.string/starts-with? s "(") (into [:or] (map regex->tree* (split-branches (subs s 1 (dec (count s))))))
+    (clojure.string/includes? s "(") (vec (remove #{""} (mapv regex->tree* (find-branches s))))
+    :else s))
+
 (defn regex->tree [s]
-  (prn :regex->tree)
-  (let [tree (cond
-               (clojure.string/starts-with? s "(") (into [:or] (map regex->tree (split-branches (subs s 1 (dec (count s))))))
-               (clojure.string/includes? s "(") (vec (remove #{""} (mapv regex->tree (find-branches s))))
-               :else s)]
+  (let [tree (regex->tree* s)]
     (if (string? tree)
       [tree]
       tree)))
