@@ -50,54 +50,53 @@
     (conj seqs buffer)))
 
 (defn regex->tree [s]
+  (prn :regex->tree)
   (cond
     (clojure.string/starts-with? s "(") (into [:or] (map regex->tree (split-branches (subs s 1 (dec (count s))))))
     (clojure.string/includes? s "(") (vec (remove #{""} (mapv regex->tree (find-branches s))))
     :else s))
 
-(defn expand-one [{:keys [string remaining]}]
-  (if-let [node (first remaining)]
-    (cond
-      (string? node)
-      [{:string (str string node) :remaining (rest remaining)}]
-
-      (= (first node) :or)
-      (mapv (fn [next-node]
-              {:string string :remaining (into [next-node] (rest remaining))})
-            (rest node))
-
-      :else
-      [{:string string :remaining (into node (rest remaining))}])
-    [{:string string}]))
-
-
 (def direction->delta {\N [1 0]
-                       \S [-1 0]
                        \W [0 1]
+                       \S [-1 0]
                        \E [0 -1]})
 
-(defn expand-regex [s]
-  (loop [expandables [{:string "" :remaining (regex->tree s)}]]
-    (if (some :remaining expandables)
-      (recur (mapcat expand-one expandables))
-      (map :string expandables))))
-
-(defn walk-path [grid location path]
+(defn walk-simple-path [grid location path]
   (if-let [c (first path)]
     (let [new-location (mapv + location (direction->delta c))]
       (recur (update grid location (fnil conj #{}) new-location)
              new-location
              (rest path)))
-    grid))
+    [grid location]))
 
-(defn walk-paths [paths]
-  (reduce
-    (fn [grid path]
-      (walk-path grid [0 0] path))
-    {}
-    paths))
+(defn walk-one [grid location tree]
+  (if-let [node (first tree)]
+    (cond
+      (string? node)
+      (let [[grid location] (walk-simple-path grid location node)]
+        [grid [[location (rest tree)]]])
+
+      (= (first node) :or)
+      [grid (map (fn [next-node]
+                   [location (into [next-node] (rest tree))])
+                 (rest node))]
+
+      :else
+      [grid [[location (into node (rest tree))]]])
+    [grid nil]))
+
+(defn walk-paths [tree]
+  (prn :walking-paths)
+  (loop [grid {}
+         walkables [[[0 0] tree]]]
+    (prn :walking-paths (count grid) (count walkables))
+    (if-let [[location element] (first walkables)]
+      (let [[grid new-walkables] (walk-one grid location element)]
+        (recur grid (into (rest walkables) new-walkables)))
+      grid)))
 
 (defn shortest-distances [grid]
+  (prn :shortest-distances)
   (loop [distances (-> (zipmap (keys grid) (repeat nil))
                        (assoc [0 0] 0))
          unvisited (-> (keys grid) (set) (disj [0 0]))
@@ -122,7 +121,7 @@
       distances)))
 
 (defn part1 [input]
-  (-> (expand-regex (subs input 1 (dec (count input))))
+  (-> (regex->tree (subs input 1 (dec (count input))))
       (walk-paths)
       (shortest-distances)
       (vals)
